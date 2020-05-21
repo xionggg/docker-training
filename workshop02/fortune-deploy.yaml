@@ -1,0 +1,38 @@
+---
+#create a namespace
+apiVersion: v1 # if it's core, just v1, if the group of the api is app, need to write app/v1
+kind: Namespace
+metadata: 
+  name: myns # name of the namespace
+  labels: #any key value pair
+    dept: engineering
+    app: fortune
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortune-deploy
+  namespace: myns
+  labels:
+    dept: engineering
+    app: fortune
+spec:
+  replicas: 3
+  selector: 
+    matchLabels:
+      app: fortune-pod
+  template:
+    # pod yaml
+    metadata: 
+      name: fortune-pod
+      labels:
+        dept: engineering
+        app: fortune-pod
+    spec:
+      containers:
+        - name: fortune-container
+          image: xiong1216/fortune:v3
+          imagePullPolicy: IfNotPresent
+          ports:
+          - name: http-port
+            containerPort: 3000

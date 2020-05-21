@@ -1,0 +1,70 @@
+---
+#create a namespace
+apiVersion: v1 # if it's core, just v1, if the group of the api is app, need to write app/v1
+kind: Namespace
+metadata: 
+  name: nwapp # name of the namespace
+  labels: #any key value pair
+    dept: engineering
+    app: fortune
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortune-deploy
+  namespace: nwapp
+  labels:
+    dept: engineering
+    app: fortune
+spec:
+  replicas: 3
+  selector: 
+    matchLabels:
+      app: fortune-pod
+  template:
+    # pod yaml
+    metadata: 
+      name: fortune-pod
+      labels:
+        app: fortune-pod
+    spec:
+      containers:
+        - name: fortune-container
+          image: xiong1216/fortune:v3
+          imagePullPolicy: IfNotPresent
+          ports:
+          - name: http-port
+            containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortune-svc
+  labels: 
+    app: fortune
+spec:
+  type: ClusterIP
+  selector:
+    app: fortune-pod
+  ports:
+  - name: for-port
+    port: 8080
+    targetPort: http-port
+---
+
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+   name: fortune-ing
+   labels:
+      app: fortune
+
+spec:
+   rules:
+   - host: "fortune.104.248.99.27.nip.io"
+     http:
+        paths:
+        - path: /
+          backend:
+            serviceName: fortune-svc
+            servicePort: for-port
