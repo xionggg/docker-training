@@ -1,0 +1,107 @@
+---
+# write deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: wordpress-cm
+   labels:
+      app: wordpress
+data:
+  WORDPRESS_DB_HOST: wordpress-mysql.wordpress.svc.cluster.local
+  WORDPRESS_DB_USER: root
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim 
+# for store wordpress content
+metadata:
+  name: wordpress-pvc
+  labels:
+    app: wordpress
+spec:
+  accessModes:
+  - ReadWriteOnce  
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: do-block-storage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-deployment
+  labels:
+    app: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress-pod
+  template:
+    metadata:
+      name: wordpress-pod
+      labels:
+        app: wordpress-pod
+    spec:
+      volumes:
+        - name: wordpress-vol
+          persistentVolumeClaim:
+            claimName: wordpress-pvc
+      containers:
+      - name: wordpress
+        image: library/wordpress
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef: 
+            name: wordpress-cm #use the key as environment variable
+        env: 
+        - name: WORDPRESS_DB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: wordpress-cluster-secret
+              key: ROOT_PASSWORD
+        ports:
+        - name: wordpress-port
+          containerPort: 80
+        volumeMounts:
+        - name: wordpress-vol #refer to line 38
+          mountPath: /var/www/html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpressdb-svc 
+  labels:
+    app: wordpress
+spec:
+  type: ClusterIP
+  selector:
+    app: wordpress-pod
+  ports:
+  - name: http-port
+    port: 80
+    targetPort: wordpress-port
+
+#ingress
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: wordpressdb-ing
+  labels:
+    app: wordpress
+  annotations: 
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/limit-rpm: "15"
+spec:
+  rules:
+  - host: wordpress-157.230.193.208.nip.io
+    http:
+      paths: 
+        - path: /
+          backend: 
+            serviceName: wordpressdb-svc
+            servicePort: http-port # match line 80
+        
+
